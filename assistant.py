@@ -8,6 +8,9 @@ import chromadb
 #   install ollama
 #   ollama pull llama3 so that the model is available
 #   ollama pull nomic-embed-text
+#   sudo apt install postgresql postgresql-contrib
+#   sudo systemctl start postgreql
+#   sudo systemctl enable postgresql
 
 client = chromadb.Client()
 message_history = [
