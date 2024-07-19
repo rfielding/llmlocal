@@ -1,7 +1,8 @@
 #!/bin/env python3.12
 import ollama
 import chromadb
-
+import psycopg
+from psycopg.rows import dict_row
 
 # prerequisite:
 #   python3.12 venv to pip install -r requirements.txt
@@ -11,27 +12,58 @@ import chromadb
 #   sudo apt install postgresql postgresql-contrib
 #   sudo systemctl start postgreql
 #   sudo systemctl enable postgresql
+#   sudo -u postgres psql
+#
+#  postgres=# create user llama with password 'llama' superuser;
+#  CREATE ROLE
+#  postgres=# grant all privileges on database postgres to llama;
+#  GRANT
+#
+#  create database memory)agent;
+#  grant all privileges on schema public to llama;
+#  grant all privileges on database memory_agent to llama;
+#  create table conversations (id serial primary key, timestamp timestamp not null default current_timestamp, prompt text not null, response text not null);
 
 client = chromadb.Client()
-message_history = [
-    {
-        'id': 1,
-        'prompt': 'What is my name?',
-        'response': 'Your name is Austion, known online as Ai Austin.'
-    },
-    {
-        'id': 2,
-        'prompt': 'What is the square root of 9876?',
-        'response': '99.378'
-    },
-    {
-        'id': 3,
-        'prompt': 'What kind of dog to I have?',
-        'response': 'Your dog Roxy is a pitbull'
-    }
-]
+system_prompt = (
+        'You are an AI assistent that has memory of every conversation you have ever had with this user. '
+        'On every prompt from the user, the system has checked for any relevant messages you have had with the user. '
+        'If any embedded previous conversations are attached, use them for context to responding to the user, '
+        'if the context is relevant and useful to responding. If the recalled conversations are irrelevant, '
+        'disregard speaking about them and respond normally as an AI assistent. Do not talk about recalling conversations.'
+        'Juse use any useful data from the previous conversations and respond normally as an intelligent AI assistent.'
+)
 
-convo = []
+convo = [{'role': 'system', 'content': system_prompt}]
+DB_PARAMS = {
+        'dbname':  'memory_agent',
+        'user':    'llama',
+        'password':'llama',
+        'host':    'localhost',
+        'port':    '5432'
+}
+
+def connect_db():
+    conn = psycopg.connect(**DB_PARAMS)
+    return conn
+
+def fetch_conversations():
+    conn = connect_db()
+    with conn.cursor(row_factory=dict_row) as cursor:
+        cursor.execute('SELECT * from conversations')
+        conversations = cursor.fetchall()
+    conn.close()
+    return conversations
+
+def store_conversations(prompt, response):
+    conn = connect_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+                'insert into conversations (timestamp, prompt, response) values (current_timestamp, %s, %s)',
+                (prompt, response)
+        )
+        conn.commit()
+    conn.close()
 
 def stream_response(prompt):
     convo.append({'role':'user', 'content':prompt})
@@ -43,6 +75,7 @@ def stream_response(prompt):
         response += content
         print(content, end='', flush=True)
     print('\n')
+    store_conversations(prompt=prompt, response=response)
     convo.append({'role':'assistant', 'content':response})
 
 def create_vector_db(conversations):
@@ -76,7 +109,24 @@ def retrieve_embeddings(prompt):
 
     return best_embedding
 
-create_vector_db(conversations=message_history)
+def create_queries(prompt):
+    query_msg = (
+            'You are a first principle reasoning search query AI agent. '
+            'Your list of search queries will be ran on an embedding database of all your conversations '
+            'you have ever had with the user. With first principles create a Python list of euqeries to '
+            'search the embeddings database for any data that would be necessary to have access to in '
+            'order to correctly respond to the prompt. Your response must be a Python list with no syntax errors. '
+            'Do not explain anything and do not ever generate anything but a perfect syntax Python list'
+    )
+    query_cocnvo = [
+            {'role':'system', 'content': query_msg},
+            {'role':'user', 'content': 'Write an email to my car insurance company and create a persuasive request for them to lower my rate.'},
+            {'role': 'assistant', 'content': '["What is the users name?", "What is the users current auto insurance provider?"]'},
+            {'role': 'user', 'content':prompt}
+    ]
+
+conversations = fetch_conversations()
+create_vector_db(conversations=conversations)
 while True:
     prompt = input('USER: \n')
     context = retrieve_embeddings(prompt=prompt)
