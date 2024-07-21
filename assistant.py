@@ -88,7 +88,7 @@ def create_vector_db(conversations):
     vector_db = client.create_collection(name=vector_db_name)
 
     for c in conversations:
-        serialized_convo = f'prompt: {c['prompt']} response: {c['response']}'
+        serialized_convo = 'prompt: %s response: %s'%(c['prompt'],c['response'])
         response = ollama.embeddings(model='nomic-embed-text',prompt=serialized_convo)
         embedding = response['embedding']
 
@@ -130,6 +130,6 @@ create_vector_db(conversations=conversations)
 while True:
     prompt = input('USER: \n')
     context = retrieve_embeddings(prompt=prompt)
-    prompt = f'USER PROMPT: {prompt} \nCONTEXT FROM EMBEDDINGS: {context}'
+    prompt = 'USER PROMPT: %s \nCONTEXT FROM EMBEDDINGS: %s'%(prompt,context)
     stream_response(prompt=prompt) 
 
