@@ -7,7 +7,7 @@ from psycopg.rows import dict_row
 # prerequisite:
 #   python3.12 venv to pip install -r requirements.txt
 #   install ollama
-#   ollama pull llama3 so that the model is available
+#   ollama pull llama3.2 so that the model is available
 #   ollama pull nomic-embed-text
 #   sudo apt install postgresql postgresql-contrib
 #   sudo systemctl start postgreql
@@ -31,7 +31,7 @@ system_prompt = (
         'If any embedded previous conversations are attached, use them for context to responding to the user, '
         'if the context is relevant and useful to responding. If the recalled conversations are irrelevant, '
         'disregard speaking about them and respond normally as an AI assistent. Do not talk about recalling conversations.'
-        'Juse use any useful data from the previous conversations and respond normally as an intelligent AI assistent.'
+        'Just use any useful data from the previous conversations and respond normally as an intelligent AI assistent.'
 )
 
 convo = [{'role': 'system', 'content': system_prompt}]
@@ -68,7 +68,7 @@ def store_conversations(prompt, response):
 def stream_response(prompt):
     convo.append({'role':'user', 'content':prompt})
     response = ''
-    stream = ollama.chat(model='llama3', messages=convo, stream=True)
+    stream = ollama.chat(model='llama3.2', messages=convo, stream=True)
     print('\nASSISTANT:')
     for chunk in stream:
         content = chunk['message']['content']
